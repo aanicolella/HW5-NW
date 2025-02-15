@@ -128,11 +128,36 @@ class NeedlemanWunsch:
         
         # TODO: Initialize matrix private attributes for use in alignment
         # create matrices for alignment scores, gaps, and backtracing
-        pass
-
+        aLen, bLen = (len(seqA) + 1), (len(seqB) + 1)
+        self._align_matrix = np.zeros((aLen, bLen))
+        self._gapA_matrix = np.zeros((aLen, bLen))
+        self._gapB_matrix = np.zeros((aLen, bLen))
+        self._back = np.zeros((aLen, bLen), dtype=int)
         
         # TODO: Implement global alignment here
-        pass      		
+
+        # initialize first row/column
+        for i in range(1, aLen):
+            self._align_matrix[i, 0] = self.gap_open + (i-1) * self.gap_extend  	
+        for j in range(1, bLen):
+            self._align_matrix[0, j] = self.gap_open + (j-1) * self.gap_extend
+
+        # fill alignment matrices using provided scoring parameters
+        for i in range(1, aLen):
+            for j in range(1, bLen):
+                # define potential alignment options and select max value for assignment
+                match = self._align_matrix[i - 1, j - 1] + self.sub_dict.get((seqA[i - 1], seqB[j - 1]), -1)
+                delete = self._align_matrix[i - 1, j] + self.gap_extend
+                insert = self._align_matrix[i, j - 1] + self.gap_extend
+                self._align_matrix[i, j] = max(match, delete, insert)
+
+                # add pointer for results to backtrack matrix
+                if self._align_matrix[i, j] == match:
+                    self._back[i, j] = 1  # Diagonal
+                elif self._align_matrix[i, j] == delete:
+                    self._back[i, j] = 2  # Up 
+                else:
+                    self._back[i, j] = 3  # Left 
         		    
         return self._backtrace()
 
@@ -150,7 +175,29 @@ class NeedlemanWunsch:
          	(alignment score, seqA alignment, seqB alignment) : Tuple[float, str, str]
          		the score and corresponding strings for the alignment of seqA and seqB
         """
-        pass
+        """ Traces back through the alignment matrices to construct the final alignment """
+        i, j = len(self._seqA), len(self._seqB)
+        aAlign, bAlign = [], []
+        self.alignment_score = self._align_matrix[i, j]
+
+        # Traceback process, assign values based on string in self._back
+        while i > 0 or j > 0:
+            if i > 0 and j > 0 and self._back[i, j] == 1:
+                aAlign.append(self._seqA[i - 1])
+                bAlign.append(self._seqB[j - 1])
+                i -= 1
+                j -= 1
+            elif i > 0 and self._back[i, j] == 2:
+                aAlign.append(self._seqA[i - 1])
+                bAlign.append('-')
+                i -= 1
+            else:
+                aAlign.append('-')
+                bAlign.append(self._seqB[j - 1])
+                j -= 1
+        # Reconstruct alignment into string (and reverse for proper ordering)
+        self.seqA_align = ''.join(reversed(aAlign))
+        self.seqB_align = ''.join(reversed(bAlign))
 
         return (self.alignment_score, self.seqA_align, self.seqB_align)
 
